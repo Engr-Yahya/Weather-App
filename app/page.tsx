@@ -56,6 +56,33 @@ async function searchLocations(searchText: string) {
   })) as WeatherLocation[];
 }
 
+function normalizeLocationResult(input: Record<string, unknown> | undefined, fallbackLat: number, fallbackLon: number): WeatherLocation | null {
+  if (!input) {
+    return null;
+  }
+
+  const rawLat = Number(input.latitude ?? fallbackLat);
+  const rawLon = Number(input.longitude ?? fallbackLon);
+
+  if (!Number.isFinite(rawLat) || !Number.isFinite(rawLon)) {
+    return null;
+  }
+
+  const name = typeof input.name === "string" && input.name.trim() ? input.name.trim() : "Current location";
+  const country = typeof input.country === "string" && input.country.trim() ? input.country.trim() : "Local area";
+  const admin1 = typeof input.admin1 === "string" && input.admin1.trim() ? input.admin1.trim() : undefined;
+  const timezone = typeof input.timezone === "string" && input.timezone.trim() ? input.timezone.trim() : undefined;
+
+  return {
+    name,
+    country,
+    admin1,
+    latitude: rawLat,
+    longitude: rawLon,
+    timezone,
+  } satisfies WeatherLocation;
+}
+
 async function resolveCurrentLocation(lat: number, lon: number) {
   const buildFallbackLocation = (name = "Current location"): WeatherLocation => ({
     name,
@@ -66,60 +93,47 @@ async function resolveCurrentLocation(lat: number, lon: number) {
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone ?? undefined,
   });
 
-  try {
-    const response = await axios.get<{ results?: Array<Record<string, unknown>> }>(
-      "https://geocoding-api.open-meteo.com/v1/reverse",
-      {
+  const providers = [
+    async () => {
+      const response = await axios.get<{ results?: Array<Record<string, unknown>> }>(
+        "https://geocoding-api.open-meteo.com/v1/reverse",
+        {
+          params: {
+            latitude: lat,
+            longitude: lon,
+            language: "en",
+            format: "json",
+          },
+        }
+      );
+
+      return normalizeLocationResult(response.data.results?.[0], lat, lon);
+    },
+    async () => {
+      const response = await axios.get<{ results?: Array<Record<string, unknown>> }>("/api/reverse-geocode", {
         params: {
           latitude: lat,
           longitude: lon,
-          language: "en",
-          format: "json",
         },
+      });
+
+      return normalizeLocationResult(response.data.results?.[0], lat, lon);
+    },
+  ];
+
+  for (const provider of providers) {
+    try {
+      const result = await provider();
+      if (result) {
+        return result;
       }
-    );
-
-    const firstResult = response.data.results?.[0];
-
-    if (firstResult) {
-      return {
-        name: String(firstResult?.name ?? "Current location"),
-        country: String(firstResult?.country ?? "Local area"),
-        admin1: typeof firstResult?.admin1 === "string" ? firstResult.admin1 : undefined,
-        latitude: Number(firstResult?.latitude ?? lat),
-        longitude: Number(firstResult?.longitude ?? lon),
-        timezone: typeof firstResult?.timezone === "string" ? firstResult.timezone : undefined,
-      } satisfies WeatherLocation;
+    } catch {
+      // Keep trying the remaining fallback providers.
     }
-  } catch {
-    // Fall through to local server fallback below.
   }
 
-  try {
-    const response = await axios.get<{ results?: Array<Record<string, unknown>> }>("/api/reverse-geocode", {
-      params: {
-        latitude: lat,
-        longitude: lon,
-      },
-    });
-
-    const firstResult = response.data.results?.[0];
-
-    if (firstResult) {
-      return {
-        name: String(firstResult?.name ?? "Current location"),
-        country: String(firstResult?.country ?? "Local area"),
-        admin1: typeof firstResult?.admin1 === "string" ? firstResult.admin1 : undefined,
-        latitude: Number(firstResult?.latitude ?? lat),
-        longitude: Number(firstResult?.longitude ?? lon),
-        timezone: typeof firstResult?.timezone === "string" ? firstResult.timezone : undefined,
-      } satisfies WeatherLocation;
-    }
-  } catch {
-    // If both lookups fail, still return a usable local fallback.
-  }
-
-  return buildFallbackLocation();
+  const fallbackName = `Current location (${lat.toFixed(2)}, ${lon.toFixed(2)})`;
+  return buildFallbackLocation(fallbackName);
 }
 
 export default function Home() {
