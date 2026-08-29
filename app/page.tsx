@@ -255,6 +255,29 @@ export default function Home() {
     );
   }
 
+  async function handleSearchSubmit(nextQuery: string) {
+    const trimmedQuery = nextQuery.trim();
+    if (!trimmedQuery) {
+      setSearchResults([]);
+      return;
+    }
+
+    setSearchResults([]);
+
+    const results = await searchLocations(trimmedQuery);
+    if (results.length === 0) {
+      setLocationError("No matching city was found.");
+      return;
+    }
+
+    const match = results[0];
+    setSelectedLocation(match);
+    setQuery(match.name);
+    setLastNonCurrentLocation(match);
+    setIsCurrentLocationActive(false);
+    setLocationError("");
+  }
+
   function handleLocationSelect(location: WeatherLocation) {
     setSelectedLocation(location);
     setQuery(location.name);
@@ -278,8 +301,8 @@ export default function Home() {
 
   if (!weather || isLoading) {
     return (
-      <main className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.16),_transparent_22%),radial-gradient(circle_at_right,_rgba(168,85,247,0.12),_transparent_24%),linear-gradient(135deg,_#020817_0%,_#0b1224_38%,_#0f172a_100%)] px-4 py-6 text-slate-50">
-        <div className="relative mx-auto max-w-5xl animate-pulse overflow-hidden rounded-[32px] border border-white/10 bg-slate-950/65 p-6 shadow-[0_30px_90px_rgba(2,6,23,0.7)] backdrop-blur-2xl">
+      <main className="min-h-screen bg-slate-950 px-4 py-6 text-slate-50">
+        <div className="relative mx-auto max-w-5xl animate-pulse overflow-hidden rounded-[32px] border border-white/10 bg-slate-950/80 p-6 shadow-[0_30px_90px_rgba(2,6,23,0.7)] backdrop-blur-2xl">
           <div className="absolute -left-12 top-10 h-40 w-40 rounded-full bg-sky-400/10 blur-3xl" />
           <div className="absolute -right-8 bottom-10 h-48 w-48 rounded-full bg-violet-400/10 blur-3xl" />
           <div className="relative">
@@ -296,13 +319,14 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.18),_transparent_20%),radial-gradient(circle_at_right,_rgba(168,85,247,0.14),_transparent_26%),linear-gradient(135deg,_#020817_0%,_#071527_30%,_#0f172a_100%)] px-4 py-6 text-slate-50 sm:px-6 lg:px-8">
+    <main className="min-h-screen bg-slate-950 px-4 py-6 text-slate-50 sm:px-6 lg:px-8">
       <LocationSearch
         query={query}
         searchResults={searchResults}
         locationError={locationError}
         onQueryChange={setQuery}
         onLocationSelect={handleLocationSelect}
+        onSearchSubmit={handleSearchSubmit}
       />
 
       <WeatherDashboard
