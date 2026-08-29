@@ -57,34 +57,69 @@ async function searchLocations(searchText: string) {
 }
 
 async function resolveCurrentLocation(lat: number, lon: number) {
-  const response = await axios.get<{ results?: Array<Record<string, unknown>> }>("/api/reverse-geocode", {
-    params: {
-      latitude: lat,
-      longitude: lon,
-    },
+  const buildFallbackLocation = (name = "Current location"): WeatherLocation => ({
+    name,
+    country: "Local area",
+    admin1: undefined,
+    latitude: lat,
+    longitude: lon,
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone ?? undefined,
   });
 
-  if (!response.data.results || response.data.results.length === 0) {
-    return {
-      name: "Current location",
-      country: "Local area",
-      admin1: undefined,
-      latitude: lat,
-      longitude: lon,
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone ?? undefined,
-    } satisfies WeatherLocation;
+  try {
+    const response = await axios.get<{ results?: Array<Record<string, unknown>> }>(
+      "https://geocoding-api.open-meteo.com/v1/reverse",
+      {
+        params: {
+          latitude: lat,
+          longitude: lon,
+          language: "en",
+          format: "json",
+        },
+      }
+    );
+
+    const firstResult = response.data.results?.[0];
+
+    if (firstResult) {
+      return {
+        name: String(firstResult?.name ?? "Current location"),
+        country: String(firstResult?.country ?? "Local area"),
+        admin1: typeof firstResult?.admin1 === "string" ? firstResult.admin1 : undefined,
+        latitude: Number(firstResult?.latitude ?? lat),
+        longitude: Number(firstResult?.longitude ?? lon),
+        timezone: typeof firstResult?.timezone === "string" ? firstResult.timezone : undefined,
+      } satisfies WeatherLocation;
+    }
+  } catch {
+    // Fall through to local server fallback below.
   }
 
-  const firstResult = response.data.results[0];
+  try {
+    const response = await axios.get<{ results?: Array<Record<string, unknown>> }>("/api/reverse-geocode", {
+      params: {
+        latitude: lat,
+        longitude: lon,
+      },
+    });
 
-  return {
-    name: String(firstResult?.name ?? "Current location"),
-    country: String(firstResult?.country ?? "Local area"),
-    admin1: typeof firstResult?.admin1 === "string" ? firstResult.admin1 : undefined,
-    latitude: Number(firstResult?.latitude ?? lat),
-    longitude: Number(firstResult?.longitude ?? lon),
-    timezone: typeof firstResult?.timezone === "string" ? firstResult.timezone : undefined,
-  } satisfies WeatherLocation;
+    const firstResult = response.data.results?.[0];
+
+    if (firstResult) {
+      return {
+        name: String(firstResult?.name ?? "Current location"),
+        country: String(firstResult?.country ?? "Local area"),
+        admin1: typeof firstResult?.admin1 === "string" ? firstResult.admin1 : undefined,
+        latitude: Number(firstResult?.latitude ?? lat),
+        longitude: Number(firstResult?.longitude ?? lon),
+        timezone: typeof firstResult?.timezone === "string" ? firstResult.timezone : undefined,
+      } satisfies WeatherLocation;
+    }
+  } catch {
+    // If both lookups fail, still return a usable local fallback.
+  }
+
+  return buildFallbackLocation();
 }
 
 export default function Home() {

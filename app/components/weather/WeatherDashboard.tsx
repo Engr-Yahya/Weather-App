@@ -78,7 +78,6 @@ export function WeatherDashboard({
         <section className="mt-8 grid gap-6 xl:grid-cols-[1.5fr_0.9fr]">
           <div className="relative min-w-0 rounded-[30px] border border-white/10 bg-[linear-gradient(135deg,rgba(15,23,42,0.88),rgba(15,23,42,0.62))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] sm:p-5 md:p-6 overflow-hidden">
             <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-sky-400/8 to-transparent" />
-            <div className="relative flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="mt-4">
                 <p className="text-xs uppercase tracking-[0.22em] text-slate-400 sm:text-sm">Now</p>
                 <h2 className="mt-2 break-words text-2xl font-semibold leading-[1.08] text-white sm:text-3xl md:text-4xl">{currentLocationLabel}</h2>
@@ -86,7 +85,6 @@ export function WeatherDashboard({
               <div className="absolute right-4 top-4 min-w-[120px] rounded-2xl border border-sky-400/30 bg-sky-500/10 px-2 py-2 text-center text-[9px] font-medium uppercase tracking-[0.18em] text-sky-200 sm:right-6 sm:top-6 sm:min-w-[140px] sm:text-[10px]">
                 {weather.timezone}
               </div>
-            </div>
 
             <div className="relative mt-7 flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
               <div className="flex min-w-0 items-center gap-3 sm:gap-4">
